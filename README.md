@@ -12,19 +12,123 @@ This project is intended for:
 
 It is not intended for unauthorized downloading or reposting of third-party content.
 
-## Initial Layout
+## Current MVP
+
+The first version provides:
+
+- inbox scanning for local video files
+- one JSON manifest per video
+- command-based uploader integration
+- JSONL run logs
+- automatic archiving into `processed/` or `failed/`
+
+The uploader itself is configurable. That lets you plug in an existing Bilibili uploader command without rewriting the queueing logic.
+
+## Layout
 
 - `config/`: local configuration files
 - `data/inbox/`: videos waiting to be processed
-- `data/processed/`: videos that finished successfully
-- `data/failed/`: videos that need attention
+- `data/processed/`: successful jobs
+- `data/failed/`: failed jobs
 - `logs/`: runtime logs
-- `scripts/`: operational helper scripts
-- `src/`: application code
+- `scripts/`: helper entrypoints
+- `src/`: Python application code
 
-## Next Steps
+## Config
 
-1. Define the uploader workflow and config format.
-2. Add a local metadata manifest for each video.
-3. Implement a minimal Bilibili upload runner.
-4. Add logging, retries, and post-upload archiving.
+Copy `config/example.json` to `config/config.json` and then replace `uploader.command` with your real uploader command.
+
+Example:
+
+```json
+{
+  "project_name": "creator-sync",
+  "storage": {
+    "inbox_dir": "data/inbox",
+    "processed_dir": "data/processed",
+    "failed_dir": "data/failed",
+    "logs_dir": "logs"
+  },
+  "uploader": {
+    "command": [
+      "bash",
+      "-lc",
+      "printf 'upload %s\\n' \"{video_path}\""
+    ],
+    "env": {}
+  }
+}
+```
+
+Supported placeholders in `uploader.command` and `uploader.env`:
+
+- `{video_path}`
+- `{video_name}`
+- `{video_stem}`
+- `{manifest_path}`
+- `{title}`
+- `{description}`
+- `{tid}`
+- `{tags_csv}`
+- `{source}`
+- `{cover_path}`
+- `{duration_seconds}`
+- `{size_bytes}`
+
+## Manifest Format
+
+Each video in `data/inbox/` should have a same-name JSON file:
+
+`demo.mp4`
+`demo.json`
+
+Example manifest:
+
+```json
+{
+  "title": "Demo Title",
+  "description": "Demo description",
+  "tid": 21,
+  "tags": ["demo", "creator-sync"],
+  "source": "creator-owned",
+  "cover_path": ""
+}
+```
+
+Required fields:
+
+- `title`
+- `description`
+- `tid`
+
+## Usage
+
+Create missing manifests:
+
+```bash
+python3 -m src.creator_sync.cli --config config/config.json init-manifests
+```
+
+Preview ready jobs:
+
+```bash
+python3 -m src.creator_sync.cli --config config/config.json scan
+```
+
+Validate and print uploader commands without executing:
+
+```bash
+python3 -m src.creator_sync.cli --config config/config.json run --dry-run
+```
+
+Run the pipeline:
+
+```bash
+python3 -m src.creator_sync.cli --config config/config.json run
+```
+
+Or use:
+
+```bash
+./scripts/run_pipeline.sh run --dry-run
+```
