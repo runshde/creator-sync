@@ -207,19 +207,29 @@ def build_context(project_root: Path, job: Job) -> dict[str, str]:
     tags = job.manifest.get("tags", [])
     cover_path = job.manifest.get("cover_path", "")
     absolute_cover_path = ""
+    relative_cover_path = ""
     if cover_path:
-        absolute_cover_path = str(resolve_path(project_root, cover_path).resolve())
+        resolved_cover_path = resolve_path(project_root, cover_path).resolve()
+        absolute_cover_path = str(resolved_cover_path)
+        try:
+            relative_cover_path = str(resolved_cover_path.relative_to(project_root.resolve()))
+        except ValueError:
+            relative_cover_path = ""
     return {
+        "project_root": str(project_root.resolve()),
         "video_path": str(job.video_path.resolve()),
+        "video_path_relative": str(job.video_path.resolve().relative_to(project_root.resolve())),
         "video_name": job.video_path.name,
         "video_stem": job.video_path.stem,
         "manifest_path": str(job.manifest_path.resolve()),
+        "manifest_path_relative": str(job.manifest_path.resolve().relative_to(project_root.resolve())),
         "title": str(job.manifest["title"]),
         "description": str(job.manifest["description"]),
         "tid": str(job.manifest["tid"]),
         "tags_csv": ",".join(str(tag) for tag in tags),
         "source": str(job.manifest.get("source", "creator-owned")),
         "cover_path": absolute_cover_path,
+        "cover_path_relative": relative_cover_path,
         "duration_seconds": "" if job.duration_seconds is None else str(job.duration_seconds),
         "size_bytes": str(job.size_bytes),
     }

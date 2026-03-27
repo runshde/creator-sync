@@ -63,16 +63,20 @@ Example:
 
 Supported placeholders in `uploader.command` and `uploader.env`:
 
+- `{project_root}`
 - `{video_path}`
+- `{video_path_relative}`
 - `{video_name}`
 - `{video_stem}`
 - `{manifest_path}`
+- `{manifest_path_relative}`
 - `{title}`
 - `{description}`
 - `{tid}`
 - `{tags_csv}`
 - `{source}`
 - `{cover_path}`
+- `{cover_path_relative}`
 - `{duration_seconds}`
 - `{size_bytes}`
 
@@ -156,3 +160,15 @@ The web console supports:
 - per-video dry run
 - per-video execution
 - recent run log viewing
+
+Install it as a background service:
+
+```bash
+./scripts/install_web_service.sh
+```
+
+Check status:
+
+```bash
+systemctl --user status creator-sync-web.service
+```
