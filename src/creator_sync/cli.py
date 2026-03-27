@@ -32,6 +32,22 @@ class Job:
         return self.video_path.stem
 
 
+@dataclass
+class InboxEntry:
+    video_path: Path
+    manifest_path: Path
+    has_manifest: bool
+    manifest: dict[str, Any] | None
+    duration_seconds: float | None
+    size_bytes: int
+    status: str
+    error: str | None
+
+    @property
+    def stem(self) -> str:
+        return self.video_path.stem
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -97,32 +113,85 @@ def find_duration_seconds(video_path: Path) -> float | None:
 
 
 def scan_jobs(project_root: Path, config: dict[str, Any]) -> list[Job]:
+    jobs: list[Job] = []
+    for entry in scan_inbox(project_root, config):
+        if entry.status != "ready" or not entry.manifest:
+            continue
+        jobs.append(
+            Job(
+                video_path=entry.video_path,
+                manifest_path=entry.manifest_path,
+                manifest=entry.manifest,
+                duration_seconds=entry.duration_seconds,
+                size_bytes=entry.size_bytes,
+            )
+        )
+    return jobs
+
+
+def scan_inbox(project_root: Path, config: dict[str, Any]) -> list[InboxEntry]:
     storage = config["storage"]
     inbox_dir = resolve_path(project_root, storage["inbox_dir"])
-    jobs: list[Job] = []
+    entries: list[InboxEntry] = []
     for video_path in sorted(inbox_dir.iterdir()):
         if not video_path.is_file() or video_path.suffix.lower() not in VIDEO_EXTENSIONS:
             continue
         manifest_path = video_path.with_suffix(".json")
+        size_bytes = video_path.stat().st_size
+        duration_seconds = find_duration_seconds(video_path)
         if not manifest_path.exists():
-            continue
-        manifest = load_json(manifest_path)
-        validate_manifest(video_path, manifest)
-        cover_path = manifest.get("cover_path")
-        if cover_path:
-            absolute_cover = resolve_path(project_root, cover_path)
-            if not absolute_cover.exists():
-                raise CreatorSyncError(f"cover file not found for {video_path.name}: {absolute_cover}")
-        jobs.append(
-            Job(
-                video_path=video_path,
-                manifest_path=manifest_path,
-                manifest=manifest,
-                duration_seconds=find_duration_seconds(video_path),
-                size_bytes=video_path.stat().st_size,
+            entries.append(
+                InboxEntry(
+                    video_path=video_path,
+                    manifest_path=manifest_path,
+                    has_manifest=False,
+                    manifest=None,
+                    duration_seconds=duration_seconds,
+                    size_bytes=size_bytes,
+                    status="missing_manifest",
+                    error="Manifest file is missing.",
+                )
             )
-        )
-    return jobs
+            continue
+        try:
+            manifest = load_json(manifest_path)
+            validate_manifest(video_path, manifest)
+            cover_path = manifest.get("cover_path")
+            if cover_path:
+                absolute_cover = resolve_path(project_root, cover_path)
+                if not absolute_cover.exists():
+                    raise CreatorSyncError(f"cover file not found: {absolute_cover}")
+            entries.append(
+                InboxEntry(
+                    video_path=video_path,
+                    manifest_path=manifest_path,
+                    has_manifest=True,
+                    manifest=manifest,
+                    duration_seconds=duration_seconds,
+                    size_bytes=size_bytes,
+                    status="ready",
+                    error=None,
+                )
+            )
+        except CreatorSyncError as exc:
+            manifest = None
+            try:
+                manifest = load_json(manifest_path)
+            except CreatorSyncError:
+                manifest = None
+            entries.append(
+                InboxEntry(
+                    video_path=video_path,
+                    manifest_path=manifest_path,
+                    has_manifest=True,
+                    manifest=manifest,
+                    duration_seconds=duration_seconds,
+                    size_bytes=size_bytes,
+                    status="invalid_manifest",
+                    error=str(exc),
+                )
+            )
+    return entries
 
 
 def validate_manifest(video_path: Path, manifest: dict[str, Any]) -> None:
@@ -370,6 +439,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.set_defaults(func=command_run)
 
     return parser
+
+
 
 
 def main(argv: list[str] | None = None) -> int:

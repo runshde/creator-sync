@@ -21,6 +21,7 @@ The first version provides:
 - command-based uploader integration
 - JSONL run logs
 - automatic archiving into `processed/` or `failed/`
+- a local web console for queue management
 
 The uploader itself is configurable. That lets you plug in an existing Bilibili uploader command without rewriting the queueing logic.
 
@@ -132,3 +133,26 @@ Or use:
 ```bash
 ./scripts/run_pipeline.sh run --dry-run
 ```
+
+## Web Console
+
+Start the local web UI:
+
+```bash
+./scripts/run_web.sh --host 0.0.0.0 --port 8714
+```
+
+Then open:
+
+```text
+http://<your-server-ip>:8714
+```
+
+The web console supports:
+
+- dashboard view of inbox videos
+- one-click manifest initialization
+- metadata editing in the browser
+- per-video dry run
+- per-video execution
+- recent run log viewing
