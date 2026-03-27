@@ -1,0 +1,19 @@
+project_name: creator-sync
+
+storage:
+  inbox_dir: data/inbox
+  processed_dir: data/processed
+  failed_dir: data/failed
+  logs_dir: logs
+
+publish:
+  platform: bilibili
+  channel: default
+  visibility: public
+  retry_limit: 3
+
+metadata:
+  default_tags: []
+  title_suffix: ""
+  description_template: |
+    Source: creator-owned media
